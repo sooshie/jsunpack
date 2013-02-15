@@ -587,6 +587,7 @@ class pdf:
 
                     if k  in ['JavaScript', 'JS']:
                         self.objects[key].isJS = True
+                        foundChildJs = False
                         for childType, childKey in self.objects[key].children: # Is the JS with the children?
                             if childKey in self.objects and childType in ['JS', 'JavaScript']:
                                 self.objects[childKey].isJS = True
