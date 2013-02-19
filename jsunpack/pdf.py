@@ -426,7 +426,7 @@ class pdf:
         self.list_obj = []
         self.jsObjects = []
         self.encryptKey = ''
-        self.encryptKeyValid = True
+        self.encryptKeyValid = False
         self.encryptObject = {}
         self.encryptPassword = password
         self.xfaObjects = []
@@ -524,7 +524,7 @@ class pdf:
                 for key in self.list_obj:
                     for kstate, k, kval in self.objects[key].tags:
                         if k == 'Encrypt':
-                            for childType, childKey in self.obects[key].children:
+                            for childType, childKey in self.objects[key].children:
                                 if childType == 'Encrypt':
                                     self.objects[childKey].isEncrypt = True
                                     encryptObjectKey = childKey
@@ -545,7 +545,7 @@ class pdf:
                         break
 
                 if encryptObjectKey and fileId: # we found it
-                    self.encryptObject = self.populateEncryptionObject(self.objects[encryptObjectKey])
+                    self.encryptObject = self.populateEncryptObject(self.objects[encryptObjectKey])
                     padding = binascii.unhexlify('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A')
                     # limit of 32 characters here
                     passwd = (self.encryptPassword + padding)[0:32]
@@ -553,16 +553,15 @@ class pdf:
                     if self.encryptObject['V'] == 5 and self.encryptKey != '\xca\x1e\xb0' and 'Perms' in self.encryptObject:
                         aes = AES.new(self.encryptKey, AES.MODE_ECB)
                         decryptedPerms = aes.decrypt(self.encryptObject['Perms'])
-                        if decryptedPerms[0:4] == self.encryptObject['P'] and decryptedPerms[9:12] == 'adb':
+                        if decryptedPerms[0:4] == self.encryptObject['P'][0:4] and decryptedPerms[9:12] == 'adb':
                             self.encryptKeyValid = True
                     else:
                         self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, passwd, fileId, self.encryptObject)
 
-
             for key in self.list_obj: #sorted(self.objects.keys()):
                 #set object options
                 if self.encryptKey and self.encryptKeyValid:
-                    if self.objects[key].tagstream and not self.objects[key].isEncrpyt and not self.objects[key].isFromObjStream:
+                    if self.objects[key].tagstream and not self.objects[key].isEncrypt and not self.objects[key].isFromObjStream:
                         if self.encryptObject['algorithm'] == 'RC4':
                             self.objects[key].tagstream = self.decryptRC4(self.objects[key].tagstream, self.encryptKey)
                         elif self.encryptObject['algorithm'] == 'AES':
@@ -754,7 +753,7 @@ class pdf:
         e['O'] = ''
         e['U'] = ''
 
-        for state, tag, value in ecryptObject.tags:
+        for state, tag, value in encryptObject.tags:
             # Multiple lengths, referring to different things, take the bigger one, that *should* be right
             if tag == 'Length' and 'Length' in e:
                 if int(value) > int(e[tag]):
@@ -781,7 +780,7 @@ class pdf:
         if e['V'] >= 2 and 'Length' in e:
             e['KeyLength'] = int(e['Length'])/8
 
-        if 'R' in encryptObject:
+        if 'R' in e:
             e['R'] = int(e['R'])
 
         if e['R'] <= 4 and len(e['O']) > 32:
@@ -791,7 +790,7 @@ class pdf:
             e['U'] = binascii.unhexlify(e['U'].strip())
 
         if 'P' in e:
-            e['P'] = struct.pack('L', int(encryptObject['P']) & 0xffffffff)
+            e['P'] = struct.pack('L', int(e['P']) & 0xffffffff)
 
         return e
 
@@ -814,10 +813,10 @@ class pdf:
             return key
 
         elif encryptObject['R'] == 5:
-            userKey = sha256(encryptObject['U'][32:40])
+            userKey = sha256(encryptObject['U'][32:40]).digest()
             if userKey == encryptObject['U'][0:32]: # success!
-                almostKey = sha256(encryptObject['U'][40:48])
-                aes = AES.new(almostKey, AES.MODE_ECB)
+                almostKey = sha256(encryptObject['U'][40:48]).digest()
+                aes = AES.new(almostKey, AES.MODE_CBC, '\x00'*16)
                 theKey = aes.decrypt(encryptObject['UE'])
                 return theKey
 
@@ -828,12 +827,12 @@ class pdf:
             ownerSha.update(encryptObject['O'][32:40])
             ownerSha.update(encryptObject['U'][0:48])
             ownerHash = ownerSha.digest()
-            if ownerHash == ecryptObject['O'][0:32]:
+            if ownerHash == encryptObject['O'][0:32]:
                 almostHash = shas256()
                 almostHash.update(encryptObject['O'][40:48])
                 almostHash.update(encryptObject['U'][0:48])
                 almostKey = almostHash.digest()
-                aes = AES.new(almostKey, AES.MODE_ECB)
+                aes = AES.new(almostKey, AES.MODE_CBC, '\x00'*16)
                 theKey = aes.decrypt(encryptObject['OE'])
                 return theKey
         else:
@@ -921,7 +920,7 @@ class pdf:
     def decryptRC4(self, data, key):
         '''
             Input: data is the data to decrypt, key is the obj information of the form '5 0'
-            Assumptions: self.encrpytKey is set
+            Assumptions: self.encryptKey is set
             Output: returns string of decrypted data
         '''
         try:
@@ -1101,13 +1100,11 @@ class pdf:
 
         for key in self.list_obj:
             if self.objects[key].isXFA and (self.encryptKey == '' or self.encryptKeyValid):
-                print "XFA"
                 xfaData = ''
                 for xfaType, xfaKey in self.objects[key].xfaChildren:
                     xfaData += self.objects[xfaKey].tagstream
 
                 # gets rid of some crap.  But unicode will probably cause problems down the road
-                print type(xfaData)
                 xfaData = re.sub('([\x00-\x08\x0b\x0c\x0e-\x1f])', '', xfaData)
                 xfaData = re.sub('([\x80-\xff])', 'C', xfaData)
 
@@ -1217,6 +1214,7 @@ def main(files):
                 if fout:
                     if sloppyFlag:
                         print "SLOPPY"
+
                     print 'Wrote JavaScript (%d bytes -- %d headers / %d code) to file %s' % (len(decoded), len(decoded_headers), len(decoded) - len(decoded_headers), file + '.out') 
                     fout.write(decoded)
                     fout.close()
