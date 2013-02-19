@@ -96,6 +96,8 @@ class pdfobj:
         numParenOpen = 0
         isBracketClosed = True
         for index in range(0, len(tag)):
+            #if self.keynum == '56 0':
+            #    print state, index, hex(ord(tag[index])), curtag, curval, len(curval), isBracketClosed
             if state == 'INIT':
                 isBracketClosed = True
                 if tag[index] == '/':
@@ -195,7 +197,7 @@ class pdfobj:
                 elif tag[index] == '(': #tag[index] == '\n' 
                     numParenOpen += 1
                     curval += tag[index]
-                elif tag[index] == ']' and curtag != 'JS': # can have ]s inside JS strings...
+                elif tag[index] == ']' and curtag != 'JS' and not isBracketClosed: # can have ]s inside JS strings...
                     isBracketClosed = True
                 else:
                     curval += tag[index]
@@ -224,7 +226,7 @@ class pdfobj:
                     tagdata = re.sub('\\\\([0-9]{3})', lambda mo: chr(int(mo.group(1), 8)), tagdata)
                 except:
                     tagdata = original
-
+            
             # to my dismay, there are lot of tags to unescape
             unescaped_tagdata = ''
             backslash = False
@@ -259,7 +261,6 @@ class pdfobj:
                 (tagtype == 'JS' or tagtype == 'JavaScript') and \
                 len(tagdata) > 2 and tagdata[0:2] != '\xfe\xff': 
                 stream = tagdata
-            
             self.tags.append([source, tagtype, tagdata])
         self.tagstream = stream
 
