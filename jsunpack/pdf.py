@@ -514,7 +514,7 @@ class pdf:
                         # limit of 16 characters
                         passwd = (self.encryptPassword + padding)[0:32]
                         self.encryptKey = self.computeEncryptKey(self.encryptObject, passwd, fileId)
-                        self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, passwd, fileId, self.encryptObject)
+                        self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, padding, fileId, self.encryptObject)
                         break
 
             # but wait, sometimes the encrypt object is not specified in the trailer, yet sometimes another
@@ -557,16 +557,16 @@ class pdf:
                         if decryptedPerms[0:4] == self.encryptObject['P'][0:4] and decryptedPerms[9:12] == 'adb':
                             self.encryptKeyValid = True
                     else:
-                        self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, passwd, fileId, self.encryptObject)
+                        self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, padding, fileId, self.encryptObject)
 
             for key in self.list_obj: #sorted(self.objects.keys()):
                 #set object options
                 if self.encryptKey and self.encryptKeyValid:
                     if self.objects[key].tagstream and not self.objects[key].isEncrypt and not self.objects[key].isFromObjStream:
                         if self.encryptObject['algorithm'] == 'RC4':
-                            self.objects[key].tagstream = self.decryptRC4(self.objects[key].tagstream, self.encryptKey)
+                            self.objects[key].tagstream = self.decryptRC4(self.objects[key].tagstream, key)
                         elif self.encryptObject['algorithm'] == 'AES':
-                            self.objects[key].tagstream = self.decryptAES(self.objects[key].tagstream, self.encryptKey)
+                            self.objects[key].tagstream = self.decryptAES(self.objects[key].tagstream, key)
 
                         self.objects[key].tagstreamModified = True
 
@@ -767,7 +767,7 @@ class pdf:
         if 'AESV2' in e or 'AESV3' in e:
             e['algorithm'] = 'AES'
         else:
-            e['algortihm'] = 'RC4'
+            e['algorithm'] = 'RC4'
  
         if 'EncryptMetadata' in e:
             if e['EncryptMetadata'].lower() == 'false':
@@ -800,11 +800,10 @@ class pdf:
             h = md5()
             h.update(password)
             h.update(encryptObject['O'])
-            h.update(encryptObject['P'])
+            h.update(encryptObject['P'][0:4])
             h.update(fileId)
             if encryptObject['R'] == 4 and not encryptObject['encryptMetadata']:
                 h.update("\xff\xff\xff\xff")
-
             key = h.digest()[0:encryptObject['KeyLength']]
             if encryptObject['R'] >= 3:
                 for i in range(50):
@@ -925,8 +924,16 @@ class pdf:
             Output: returns string of decrypted data
         '''
         try:
+            print 'whatevs', key
             obj, rev = key.split(' ')
-            decrypt_key = md5(self.encryptKey + struct.pack('L', int(obj))[0:3] + struct.pack('L', int(rev))[0:2]).digest()[0:10]
+            print 'whatevs2'
+
+            keyLength = self.encryptObject['KeyLength'] + 5
+            if keyLength > 16:
+                keyLength = 16
+            print keyLength
+            decrypt_key = md5(self.encryptKey + struct.pack('L', int(obj))[0:3] + struct.pack('L', int(rev))[0:2]).digest()[0:keyLength]
+            print binascii.hexlify(decrypt_key)
             cipher = ARC4.new(decrypt_key)
             return cipher.decrypt(data)
         except:
@@ -1102,13 +1109,17 @@ class pdf:
         for key in self.list_obj:
             if self.objects[key].isXFA and (self.encryptKey == '' or self.encryptKeyValid):
                 xfaData = ''
+                print key, self.objects[key].xfaChildren
                 for xfaType, xfaKey in self.objects[key].xfaChildren:
+                    print xfaType, xfaKey
+                    print self.objects[xfaKey].tagstreamError
                     xfaData += self.objects[xfaKey].tagstream
+                    print "DATA", xfaData
 
                 # gets rid of some crap.  But unicode will probably cause problems down the road
                 xfaData = re.sub('([\x00-\x08\x0b\x0c\x0e-\x1f])', '', xfaData)
                 xfaData = re.sub('([\x80-\xff])', 'C', xfaData)
-
+                print xfaData
                 try:
                     doc = xml.dom.minidom.parseString(xfaData)
                 except Exception as e:
