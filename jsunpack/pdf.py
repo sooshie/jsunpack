@@ -924,16 +924,13 @@ class pdf:
             Output: returns string of decrypted data
         '''
         try:
-            print 'whatevs', key
             obj, rev = key.split(' ')
-            print 'whatevs2'
 
             keyLength = self.encryptObject['KeyLength'] + 5
             if keyLength > 16:
                 keyLength = 16
-            print keyLength
+
             decrypt_key = md5(self.encryptKey + struct.pack('L', int(obj))[0:3] + struct.pack('L', int(rev))[0:2]).digest()[0:keyLength]
-            print binascii.hexlify(decrypt_key)
             cipher = ARC4.new(decrypt_key)
             return cipher.decrypt(data)
         except:
@@ -1109,17 +1106,12 @@ class pdf:
         for key in self.list_obj:
             if self.objects[key].isXFA and (self.encryptKey == '' or self.encryptKeyValid):
                 xfaData = ''
-                print key, self.objects[key].xfaChildren
                 for xfaType, xfaKey in self.objects[key].xfaChildren:
-                    print xfaType, xfaKey
-                    print self.objects[xfaKey].tagstreamError
                     xfaData += self.objects[xfaKey].tagstream
-                    print "DATA", xfaData
 
                 # gets rid of some crap.  But unicode will probably cause problems down the road
                 xfaData = re.sub('([\x00-\x08\x0b\x0c\x0e-\x1f])', '', xfaData)
                 xfaData = re.sub('([\x80-\xff])', 'C', xfaData)
-                print xfaData
                 try:
                     doc = xml.dom.minidom.parseString(xfaData)
                 except Exception as e:
