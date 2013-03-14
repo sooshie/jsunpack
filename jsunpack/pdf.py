@@ -96,8 +96,8 @@ class pdfobj:
         numParenOpen = 0
         isBracketClosed = True
         for index in range(0, len(tag)):
-            #if self.keynum == '56 0':
-            #    print state, index, hex(ord(tag[index])), curtag, curval, len(curval), isBracketClosed
+            #if self.keynum == '1 0':
+                #print state, index, hex(index), hex(ord(tag[index])), curtag, len(curval), numParenOpen, isBracketClosed
             if state == 'INIT':
                 isBracketClosed = True
                 if tag[index] == '/':
@@ -154,7 +154,7 @@ class pdfobj:
                     isBracketClosed = False
                     state = 'TAGVALCLOSED'
                 # Normally ignore these, but they are useful when parsing the ID in the trailer
-                elif tag[index] == '<' or tag[index] == '>' and self.keynum != 'trailer':
+                elif (tag[index] == '<' or tag[index] == '>') and self.keynum != 'trailer':
                     pass
                 elif tag[index] == ' ' and curval == '':
                     pass #already empty
@@ -166,6 +166,7 @@ class pdfobj:
                 grabMore = 0 # if grabMore is set to 1, it means the tag isn't closing yet
                 if tag[index] == ')': #possible closing tag
                     if tag[index - 1] == '\\' and tag[index-2] != '\\' or \
+                        (tag[index-1] == '\\' and tag[index-2] == '\\' and tag[index-3] == '\\') or \
                         ((curtag == 'JS' or curtag == 'JavaScript') and numParenOpen > 0) or \
                         (curtag == 'XFA' and not isBracketClosed): # we are in the middle of a JS string or an XFA array 
                         grabMore = 1
@@ -314,6 +315,7 @@ class pdfobj:
                 if endstreamTagEnd != -1 and 0 < gttag < streamtag:
                     # do this in case the word stream is in the tag data somewhere...
                     streamLocation = re.search('>>[\s\r\n%]*stream?', self.indata, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+
                     streamStart = self.indata.find('stream', streamLocation.start())
                     streamMatch = re.search('stream[\s\r\n]*(.*?)[\r\n]*endstream', self.indata, re.MULTILINE | re.DOTALL | re.IGNORECASE)
                     streamData = ''
@@ -322,7 +324,7 @@ class pdfobj:
                     if tagMatch and streamMatch:
                         streamData = streamMatch.group(1)
                         tag = tagMatch.group(1)
-                        tags = [(tag, stream)]
+                        tags = [(tag, streamData)]
                 #
                 # This checks if the word endstream happens inside the stream
                 if endstreamTagBegin != -1 and endstreamTagBegin != endstreamTagEnd:
@@ -447,7 +449,6 @@ class pdf:
                     offset,zero = int(valid.group(1)), int(valid.group(2))
                     print 'line = ', offset, zero
             #offset = int(offset)
-            #print 'found %s with offset %d' % (xref,offset)
         '''
 
         objs = re.findall('\n?(\d+)\s+(\d+)\s+obj[\s]*(.*?)\s*\n?(endobj|objend)', self.indata, re.MULTILINE | re.DOTALL)
@@ -463,7 +464,7 @@ class pdf:
 
                 self.objects[key] = pdfobj(key, obj[2])
 
-            trailers = re.findall('trailer[\s\r\n]*<<(.*?)>>', self.indata, re.MULTILINE | re.DOTALL)
+            trailers = re.findall('(trailer[\s\r\n]*<<(.*?)>>)', self.indata, re.MULTILINE | re.DOTALL)
             for trailertags in trailers:
                 trailerData = trailertags[1]
                 #
@@ -478,7 +479,6 @@ class pdf:
                 trailerobj = pdfobj('trailer', '') #empty second parameter indicates not to do an object parse
                 trailerobj.parseTag(trailerData, trailerstream)
                 trailerobj.parseChildren()
-
                 key = 'trailer'
                 if not key in self.list_obj:
                     self.list_obj.append(key)
@@ -486,7 +486,6 @@ class pdf:
                     key = key + ' dup'
                     self.list_obj.append(key)
                 self.objects[key] = trailerobj
-
                 for tag, value in trailerobj.children:
                     # If there is an encrypt object, it should be specified in the trailer
                     # (in practice, that's not always the case... *sigh*)
