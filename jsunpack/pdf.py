@@ -421,7 +421,7 @@ class pdfobj:
 
 class pdf:
     DEBUG = 0
-    def __init__(self, indata, infile, password):
+    def __init__(self, indata, infile, password= ''):
         self.indata = indata
         self.infile = infile
         self.objects = {} 

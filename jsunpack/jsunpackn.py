@@ -1016,7 +1016,7 @@ class jsunpack:
             mypdf = pdf.pdf(data, 'PDF-' + self.url)
             if mypdf.is_valid():
                 mypdf.parse()
-                pdfjs, pdfjs_header = mypdf.getJavaScript()
+                pdfjs, pdfjs_header, sloppy = mypdf.getJavaScript()
         else:
             isPDF = False
 
