@@ -451,7 +451,7 @@ class pdf:
             #offset = int(offset)
         '''
 
-        objs = re.findall('\n?(\d+)\s+(\d+)\s+obj[\s]*(.*?)\s*\n?(endobj|objend)', self.indata, re.MULTILINE | re.DOTALL)
+        objs = re.findall('\n?(\d+)\s+(\d+)[\x00\x20]+obj[\s]*(.*?)\s*\n?(endobj|.ndobj|e.dobj|en.obj|end.bj|endo.j|endob.|objend)', self.indata, re.MULTILINE | re.DOTALL)
         if objs:
             for obj in objs:
                 #fill all objects
