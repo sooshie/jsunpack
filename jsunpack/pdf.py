@@ -1093,6 +1093,7 @@ class pdf:
                     else:
                         tempJs = re.sub(r'([^\x00])\x0a', r'\1', self.objects[jskey].tagstream)
                         tempJs = re.sub(r'([^\x00])\x0d', r'\1', tempJs)
+                        tempJs = re.sub('^([\x80-\xff])', '', tempJs)
                         tempJs = re.sub('([\x00-\x08\x0b\x0c\x0e-\x1f])', '', tempJs)
                         tempJs = re.sub('([\x80-\xff])', 'C', tempJs)
                         out += tempJs
@@ -1110,6 +1111,7 @@ class pdf:
                     xfaData += self.objects[xfaKey].tagstream
 
                 # gets rid of some crap.  But unicode will probably cause problems down the road
+                xfaData = re.sub('^([\x80-\xff])', '', xfaData)
                 xfaData = re.sub('([\x00-\x08\x0b\x0c\x0e-\x1f])', '', xfaData)
                 xfaData = re.sub('([\x80-\xff])', 'C', xfaData)
                 try:
