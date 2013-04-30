@@ -426,6 +426,7 @@ class pdf:
         self.infile = infile
         self.objects = {} 
         self.pages = []
+        self.numPages = 0
         self.list_obj = []
         self.jsObjects = []
         self.encryptKey = ''
@@ -623,13 +624,17 @@ class pdf:
 
                     if k == 'Page':
                         hasContents = False
-                        for type, childkey in self.objects[key].children:
-                            if type == 'Contents':
+                        for childtype, childkey in self.objects[key].children:
+                            if childtype == 'Contents':
                                 self.pages.append(childkey)
                                 hasContents = True
                         if not hasContents:
                             self.pages.append(key)
 
+                    if k == 'Pages':
+                        for pagestate, pagetag, pagevalue in self.objects[key].tags:
+                            if pagetag == 'Count':
+                                self.numPages += int(pagevalue)
                     #populate pdfobj's doc_properties with those that exist
                     enum_properties = ['Title', 'Author', 'Subject', 'Keywords', 'Creator', 'Producer', 'CreationDate', 'ModDate', 'plot']
 
@@ -1012,6 +1017,7 @@ class pdf:
                         out += 'zzzannot2["%s"] = {subject:\'%s\'};\n' % (self.objects[jskey].knownName, subj) #getAnnot
                 for property in self.objects[jskey].doc_properties:
                     out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property, pdf.do_hexAscii(value), property, property)
+
         for page in self.pages:
             if page in self.objects:
                 lines = self.objects[page].tagstream.split('\n')
@@ -1022,8 +1028,12 @@ class pdf:
                         words = hexdata.split(' ')
                         for word in words:
                             out += 'c.push("%s"); ' % (pdf.do_hexAscii(word))
-                out += 'zzzpages.push(c); this.numPages = zzzpages.length;\n'
+                out += 'zzzpages.push(c); this.numPages = zzzpages.length; xfa.host.numPages = zzzpages.length;\n'
                 pagenow += 1
+            else:
+                out += 'this.numPages = ' + str(self.numPages) + ';\n'
+                out += 'xfa.host.numPages = ' + str(self.numPages) + ';\n'
+
         if out:
             out += '\n//jsunpack End PDF headers\n'
 
