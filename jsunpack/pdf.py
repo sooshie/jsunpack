@@ -289,7 +289,7 @@ class pdfobj:
             Output: self.children
         '''
         for state, k, kval in self.tags:
-            hasRef = re.search('^(\d+)\s+(\d+)\s+R', kval)
+            hasRef = re.search('\+?(\d+)\s+\+?(\d+)\s+R', kval)
             if hasRef:
                 objkey = hasRef.group(1) + ' ' + hasRef.group(2)
                 self.children.append([k, objkey])
@@ -1101,7 +1101,6 @@ class pdf:
                         print 'Found JavaScript in %s (%d bytes)' % (jskey, len(self.objects[jskey].tagstream))
                     #if jskey == '84 0':
                     #    print self.objects[jskey].tagstream
-
                     if len(self.objects[jskey].tagstream) > 4 and self.objects[jskey].tagstream[3] != '\x00':
                         out += self.objects[jskey].tagstream
                     else:
