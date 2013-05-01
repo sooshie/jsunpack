@@ -45,6 +45,7 @@ class pdfobj:
         self.isAnnot = False
         self.isObjStm = []
         self.isXFA = False
+        self.isXFAData = False
         self.isEncrypt = False
         self.isFromObjStream = False
         self.knownName = '' #related to annots
@@ -602,6 +603,9 @@ class pdf:
 
                     if k == 'XFA':
                         self.objects[key].isXFA = True
+                        for xfaType, xfaKey in self.objects[key].xfaChildren:
+                            if xfaKey in self.objects:
+                                self.objects[xfaKey].isXFAData = True
 
                     if k == 'NM':
                         self.objects[key].knownName = kval
