@@ -497,7 +497,7 @@ class pdf:
                             self.objects[value].isEncrypt = True
                             self.encryptObject = self.populateEncryptObject(self.objects[value])
 
-                        fileID = ''
+                        fileId = ''
                         for state, tag, val in trailerobj.tags:
                             if tag == 'ID':
                                 ids = re.findall('<([\d\w]*)>', val)
@@ -509,20 +509,20 @@ class pdf:
                                         fileId = ''
                                 else:
                                     fileId = val
-
                         # yay for default passwords
                         padding = binascii.unhexlify('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A')
                         # limit of 16 characters
                         passwd = (self.encryptPassword + padding)[0:32]
                         self.encryptKey = self.computeEncryptKey(self.encryptObject, passwd, fileId)
                         self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, padding, fileId, self.encryptObject)
+                        print self.encryptKeyValid
                         break
 
             # but wait, sometimes the encrypt object is not specified in the trailer, yet sometimes another
             # object has it in it, so search for it now
             if not self.encryptKeyValid:
                 encryptObjectKey = ''
-                fileId  = ''
+                fileId = ''
                 for key in self.list_obj:
                     for kstate, k, kval in self.objects[key].tags:
                         if k == 'Encrypt':
@@ -532,7 +532,6 @@ class pdf:
                                     encryptObjectKey = childKey
                                     break
                         if k == 'ID':
-                            fileId = ''
                             ids = re.findall('\[([\d\w]*)\]', kval)
                             if ids:
                                 firstId = ids[0]
@@ -811,12 +810,12 @@ class pdf:
             h.update(encryptObject['O'])
             h.update(encryptObject['P'][0:4])
             h.update(fileId)
-            if encryptObject['R'] == 4 and not encryptObject['encryptMetadata']:
+            if encryptObject['R'] == 4 and not encryptObject['EncryptMetadata']:
                 h.update("\xff\xff\xff\xff")
             key = h.digest()[0:encryptObject['KeyLength']]
             if encryptObject['R'] >= 3:
                 for i in range(50):
-                    key = md5(key[0:encryptObject['KeyLength']])
+                    key = md5(key[0:encryptObject['KeyLength']]).digest()
                 key = key[0:encryptObject['KeyLength']]
 
             return key
