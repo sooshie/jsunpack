@@ -506,7 +506,7 @@ class pdf:
                                     try:
                                         fileId = binascii.unhexlify(ids[0])
                                     except:
-                                        fileId = ''
+                                        pass
                                 else:
                                     fileId = val
                         # yay for default passwords
@@ -515,15 +515,16 @@ class pdf:
                         passwd = (self.encryptPassword + padding)[0:32]
                         self.encryptKey = self.computeEncryptKey(self.encryptObject, passwd, fileId)
                         self.encryptKeyValid = self.validateEncryptKey(self.encryptKey, padding, fileId, self.encryptObject)
-                        print self.encryptKeyValid
                         break
 
             # but wait, sometimes the encrypt object is not specified in the trailer, yet sometimes another
             # object has it in it, so search for it now
             if not self.encryptKeyValid:
                 encryptObjectKey = ''
-                fileId = ''
+                fileId = '\x00' * 16
                 for key in self.list_obj:
+                    if key == 'trailer':
+                        continue
                     for kstate, k, kval in self.objects[key].tags:
                         if k == 'Encrypt':
                             for childType, childKey in self.objects[key].children:
@@ -540,7 +541,7 @@ class pdf:
                                 try:
                                     fileId = binascii.unhexlify(firstId)
                                 except:
-                                    fileId = ''
+                                    pass
 
                     if encryptObjectKey and fileId:
                         break
@@ -817,7 +818,6 @@ class pdf:
                 for i in range(50):
                     key = md5(key[0:encryptObject['KeyLength']]).digest()
                 key = key[0:encryptObject['KeyLength']]
-
             return key
 
         elif encryptObject['R'] == 5:
@@ -865,7 +865,7 @@ class pdf:
                 newKey = ''
                 for k in key:
                     newKey += chr(ord(k) ^ i)
-                stepE = ARC4.new(key)
+                stepE = ARC4.new(newKey)
                 dHash = stepE.encrypt(dHash)
 
             if dHash == encryptObject['U'][0:16]:
