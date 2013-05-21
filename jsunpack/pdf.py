@@ -76,8 +76,8 @@ class pdfobj:
             out += '\tisJS'
         if self.isAnnot:
             out += '\tisAnnot'
-        for property in self.doc_properties:
-            out += '\tis%s' % property
+        for doc_prop in self.doc_properties:
+            out += '\tis%s' % doc_prop
         if self.isDelayJS:
             out += '\tisDelayJS'
         return out
@@ -648,10 +648,11 @@ class pdf:
                             isReference = re.match('^\s*\d+\s+\d+\s+R\s*$', value)
                             if isReference:
                                 validReference = False
-                                for type, childkey in self.objects[key].children:
-                                    if childkey in self.objects and (type == k):
+                                for childType, childKey in self.objects[key].children:
+                                    if childKey in self.objects and (childType == k):
                                         validReference = True
-                                        self.objects[childkey].doc_properties.append(k.lower())
+                                        self.objects[childKey].doc_properties.append(k.lower())
+                                        self.jsObjects.append(childKey)
                                 if not validReference:
                                     if pdf.DEBUG:
                                         print '[warning] possible invalid reference in %s' % (k)
@@ -1018,8 +1019,9 @@ class pdf:
                             subj = value
                         subj = re.sub('[\x00-\x1f\x7f-\xff]', '', subj) # <- below
                         out += 'zzzannot2["%s"] = {subject:\'%s\'};\n' % (self.objects[jskey].knownName, subj) #getAnnot
-                for property in self.objects[jskey].doc_properties:
-                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (property, pdf.do_hexAscii(value), property, property)
+
+                for doc_prop in self.objects[jskey].doc_properties:
+                    out += 'info.%s = String(\'%s\'); this.%s = info.%s;\n' % (doc_prop, pdf.do_hexAscii(value), doc_prop, doc_prop)
 
         for page in self.pages:
             if page in self.objects:
@@ -1028,7 +1030,7 @@ class pdf:
                 for line in lines:
                     textBE = re.findall('BT[^(]*\(([^)]+)\)[^)]*?ET', line)
                     for hexdata in textBE:
-                        words = hexdata.split(' ')
+                        words = hexdata.strip().split(' ')
                         for word in words:
                             out += 'c.push("%s"); ' % (pdf.do_hexAscii(word))
                 out += 'zzzpages.push(c); this.numPages = zzzpages.length; xfa.host.numPages = zzzpages.length;\n'
