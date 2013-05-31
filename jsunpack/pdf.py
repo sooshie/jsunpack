@@ -90,6 +90,7 @@ class pdfobj:
             If stream is not set, then we should set it before it gets assigned to tagstream
         '''
         state = 'INIT'
+        precomment_state = 'INIT'
         curtag = ''
         curval = ''
         multiline = 0 # for tracking multiline in TAGVALCLOSED state
@@ -98,7 +99,7 @@ class pdfobj:
         isBracketClosed = True
         for index in range(0, len(tag)):
             #if self.keynum == '1 0':
-                #print state, index, hex(index), hex(ord(tag[index])), curtag, len(curval), numParenOpen, isBracketClosed
+            #    print state, index, hex(index), hex(ord(tag[index])), tag[index], curtag, len(curval), numParenOpen, isBracketClosed
             if state == 'INIT':
                 isBracketClosed = True
                 if tag[index] == '/':
@@ -123,9 +124,15 @@ class pdfobj:
                     curval = '['
                 elif tag[index] == '\n':
                     state = 'TAG'
+                elif tag[index] == '%':
+                    precomment_state = state
+                    state = 'COMMENT'
                 else:
                     state = 'TAGVAL' 
                     curval = ''
+            elif state == 'COMMENT':
+                if tag[index] in ['\x0d', '\x0a']:
+                    state = precomment_state
             elif state == 'TAGVAL': 
                 # Weird cases with arrays
                 if tag[index] == '/' and (not tag[index - 1] == '\\\\') and \
@@ -201,6 +208,9 @@ class pdfobj:
                     curval += tag[index]
                 elif tag[index] == ']' and curtag != 'JS' and not isBracketClosed: # can have ]s inside JS strings...
                     isBracketClosed = True
+                elif tag[index] == '%' and numParenOpen == 0:
+                    precomment_state = state
+                    state = 'COMMENT'
                 else:
                     curval += tag[index]
             else:
@@ -1122,12 +1132,14 @@ class pdf:
             if self.objects[key].isXFA and (self.encryptKey == '' or self.encryptKeyValid):
                 xfaData = ''
                 for xfaType, xfaKey in self.objects[key].xfaChildren:
-                    xfaData += self.objects[xfaKey].tagstream
+                    if xfaKey in self.list_obj:
+                        xfaData += self.objects[xfaKey].tagstream
 
                 # gets rid of some crap.  But unicode will probably cause problems down the road
                 xfaData = re.sub('^([\x80-\xff])', '', xfaData)
                 xfaData = re.sub('([\x00-\x08\x0b\x0c\x0e-\x1f])', '', xfaData)
                 xfaData = re.sub('([\x80-\xff])', 'C', xfaData)
+
                 try:
                     doc = xml.dom.minidom.parseString(xfaData)
                 except Exception as e:
@@ -1230,12 +1242,12 @@ def main(files):
 
             if len(decoded) > 0:
                 decoded = decoded_headers + decoded
-                fout = open(file + '.out', 'w')
+                fout = open(file + '.pdf_javascript', 'w')
                 if fout:
                     if sloppyFlag:
                         print "SLOPPY"
 
-                    print 'Wrote JavaScript (%d bytes -- %d headers / %d code) to file %s' % (len(decoded), len(decoded_headers), len(decoded) - len(decoded_headers), file + '.out') 
+                    print 'Wrote JavaScript (%d bytes -- %d headers / %d code) to file %s' % (len(decoded), len(decoded_headers), len(decoded) - len(decoded_headers), file + '.pdf_javascript')
                     fout.write(decoded)
                     fout.close()
             else:
