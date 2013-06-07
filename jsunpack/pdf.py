@@ -152,6 +152,8 @@ class pdfobj:
                     if re.match('^[\s\[\]\(\)<>]*$', curval): # look for any characters that indicate this isn't a TAGVALCLOSED
                         state = 'TAGVALCLOSED'
                         multiline = 0
+                        if curtag == 'JS':
+                            numParenOpen+=1
 
                         if len(curval) > 0:
                             #print '\ttossed out %d characters (%s) because we entered TAGVALCLOSED state' % (len(curval),curval)
@@ -179,6 +181,10 @@ class pdfobj:
                         (curtag == 'XFA' and not isBracketClosed): # we are in the middle of a JS string or an XFA array 
                         grabMore = 1
                         numParenOpen-=1
+                        if curtag == 'JS':
+                            if not numParenOpen:
+                                grabMore = 0
+
                     elif multiline: #tricky cases
                         #either a newline or "(" character leads us here.
 
@@ -1114,7 +1120,13 @@ class pdf:
                     #    print self.objects[jskey].tagstream
                     if len(self.objects[jskey].tagstream) > 4 and self.objects[jskey].tagstream[3] != '\x00':
                         out += self.objects[jskey].tagstream
+                        print "OUT"
+                        print out
+                        print "OUT"
                     else:
+                        print "COWS"
+                        print out
+                        print "COWS"
                         tempJs = re.sub(r'([^\x00])\x0a', r'\1', self.objects[jskey].tagstream)
                         tempJs = re.sub(r'([^\x00])\x0d', r'\1', tempJs)
                         tempJs = re.sub('^([\x80-\xff])', '', tempJs)
