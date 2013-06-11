@@ -1120,13 +1120,7 @@ class pdf:
                     #    print self.objects[jskey].tagstream
                     if len(self.objects[jskey].tagstream) > 4 and self.objects[jskey].tagstream[3] != '\x00':
                         out += self.objects[jskey].tagstream
-                        print "OUT"
-                        print out
-                        print "OUT"
                     else:
-                        print "COWS"
-                        print out
-                        print "COWS"
                         tempJs = re.sub(r'([^\x00])\x0a', r'\1', self.objects[jskey].tagstream)
                         tempJs = re.sub(r'([^\x00])\x0d', r'\1', tempJs)
                         tempJs = re.sub('^([\x80-\xff])', '', tempJs)
